@@ -43,10 +43,15 @@ jobs:
       - name: Build Windows version
         run: yarn run package:win
 
-      - name: Build macOS version
-        run: yarn run package:darwin
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      # Ad-hoc signed (no certificate): an unsigned app shows as "damaged" once downloaded. Hardened runtime is
+      # off because ad-hoc frameworks have no team ID and library validation would stop the app from launching.
+      - name: Build macOS version (ad-hoc signed)
+        run: |
+          cat > desktop/electronBuilderConfig.hsb.js <<'JS'
+          const config = require("./electronBuilderConfig");
+          module.exports = { ...config, mac: { ...config.mac, identity: "-", hardenedRuntime: false } };
+          JS
+          yarn cross-env NODE_OPTIONS='-r ts-node/register' electron-builder build --config desktop/electronBuilderConfig.hsb.js --publish never --mac
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v7
