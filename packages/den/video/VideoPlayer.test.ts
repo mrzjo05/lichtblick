@@ -180,12 +180,33 @@ describe("VideoPlayer", () => {
       { data: new Uint8Array([2]), timestampMicros: 33333, type: "delta" },
     ]);
     await Promise.resolve();
-    await jest.advanceTimersByTimeAsync(10);
+    await jest.advanceTimersByTimeAsync(100);
     // The reference frame arrives after the deadline; it has no waiter and is dropped.
     outputFrames.get(0)?.(createFrame(0));
 
     // Then decodeFrames resolves with a timeout (the de-serialized path has no intermediate result)
     await expect(decodePromise).resolves.toEqual<DecodeFramesResult>({ type: "timeout" });
+  });
+
+  it("should return the H.264 target frame when the decoder emits it 50 ms after submission", async () => {
+    // Given an H.264-configured player whose decoder emits frames late (as hardware decoders do)
+    const { player, outputFrames } = setup({ trackDecodes: true });
+    await player.init({ codec: "avc1.64001f" });
+
+    // When the target frame is emitted 50 ms after it was submitted
+    const decodePromise = player.decodeFrames([
+      { data: new Uint8Array([1]), timestampMicros: 0, type: "key" },
+    ]);
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(50);
+    const targetFrame = createFrame(0);
+    outputFrames.get(0)?.(targetFrame);
+
+    // Then decodeFrames resolves with that frame instead of timing out
+    await expect(decodePromise).resolves.toEqual<DecodeFramesResult>({
+      type: "target",
+      frame: targetFrame,
+    });
   });
 
   it("should not return an intermediate HEVC frame before decode queue drain", async () => {

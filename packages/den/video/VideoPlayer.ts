@@ -12,12 +12,13 @@ import { H265_TARGET_FRAME_WAIT_MS } from "./h265/constants";
 
 // foxglove-depcheck-used: @types/dom-webcodecs
 
-// H.264 typically emits a decoded VideoFrame within a couple of milliseconds of submitting an
-// EncodedVideoChunk, so a tight 30 ms ceiling lets us return quickly when decoding is healthy and
-// fail fast when the decoder is stuck. The H.265 budgets live in `./h265/constants.ts` and are
-// much larger because HEVC decoders may need to consume an entire GOP before emitting the target
-// frame.
-const DEFAULT_TARGET_FRAME_WAIT_MS = 10;
+// Software H.264 decoders emit a VideoFrame within a couple of milliseconds, but hardware decoders
+// (e.g. D3D11 in Chrome on Windows) often take tens of milliseconds. A frame that misses this
+// deadline is dropped and the previous frame stays on screen, so the video falls behind the other
+// panels. 100 ms (three frames at 30 Hz) still fails fast when the decoder is stuck. The H.265
+// budgets live in `./h265/constants.ts` and are much larger because HEVC decoders may need to
+// consume an entire GOP before emitting the target frame.
+const DEFAULT_TARGET_FRAME_WAIT_MS = 100;
 
 /** A single chunk of encoded video bitstream representing one frame. */
 export type EncodedVideoFrame = {
